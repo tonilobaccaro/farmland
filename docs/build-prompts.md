@@ -28,6 +28,26 @@ Nothing in the harness assumes a server. It's a CLI writing files to a directory
 
 Run it when you don't need the machine to be quiet; it's chatty on disk and holds a browser open for hours.
 
+## What success means: diagnosis, not access
+
+**The deliverable is a correct understanding of how each site should be scraped — not a working scrape.** These are different goals, and conflating them is the main way this project could go wrong.
+
+A phase that reports *"search is Cloudflare-challenged; sitemap is open and lists 40k detail URLs; detail pages carry complete JSON-LD"* has fully succeeded. It fetched almost nothing. It also told us exactly how to build the scraper.
+
+Concretely, this means:
+
+- **No workarounds, ever.** No VPN, no rotating IPs, no residential proxies, no CAPTCHA solvers, no Cloudflare bypass services, no `cf_clearance` cookie harvesting, no stealth plugins beyond what a normal browser does. If a site can't be read from a normal browser on a normal connection, that fact is the finding.
+- **Every site produces a complete evidence record**, including ones we barely touched. "Blocked" is a described state, never a missing file.
+- **When direct access fails, characterize the site by other means** — archives, certificate transparency, sitemaps, search engines (Prompt 1b). You can learn a site's URL taxonomy, DOM structure and field locations from an archived copy without ever loading the live page.
+- **Recipes may propose things we did not do.** A recipe is allowed to conclude "this needs an authenticated session" or "this needs a real browser with cookie warmup." Write it down as an assessment with the evidence behind it, clearly marked unverified. That is the point of the exercise.
+
+The two questions every site's report must answer:
+
+1. **What is the optimal route in?** (API > hydration payload > sitemap+static > paginated static > browser)
+2. **How confident are we, and what did we not get to see?**
+
+A confident "this is hard, here's specifically why, here's what would be required" is a complete answer. A silent gap is not.
+
 ## How to use
 
 - Run **in order**. Each prompt depends on contracts established by the previous ones.
@@ -305,6 +325,101 @@ Commit as "Add fetch ladder and passive recon phases".
 
 ---
 
+## Prompt 1b — No-touch evidence sources
+
+````text
+Read CLAUDE.md and the "What success means: diagnosis, not access" section of
+docs/build-prompts.md.
+
+Add evidence sources that characterize a site WITHOUT loading its pages. These
+carry the project when a site blocks us, and they cost the target nothing. This
+is how we stay useful without proxies or bypass tooling.
+
+## Deliverables
+
+1. `src/evidence/passive/archive.py` — Wayback Machine.
+   - CDX API (`http://web.archive.org/cdx/search/cdx`) to enumerate archived URLs
+     for the domain: `url=<domain>/*&output=json&collapse=urlkey&limit=10000`.
+     This alone often reveals the complete URL taxonomy — every listing detail
+     URL pattern the site has ever had — with zero requests to the origin.
+   - Fetch archived snapshots of a search page and 2-3 detail pages
+     (`http://web.archive.org/web/<timestamp>id_/<url>` — the `id_` suffix gets
+     the original unmodified HTML, not the Wayback-rewritten version; this matters,
+     rewritten HTML corrupts the selectors we're trying to learn).
+   - Save to 01_policy/archive/ with a manifest recording snapshot dates.
+   - Record archive coverage: how many snapshots, date range, gaps. A site
+     archived weekly for 10 years is one we can study freely.
+
+2. `src/evidence/passive/commoncrawl.py` — Common Crawl index.
+   - Query the CDX index for the domain across the 2-3 most recent crawls.
+   - Use for URL-pattern confirmation at scale and as a fallback source of
+     archived HTML when Wayback is thin.
+   - Cache index responses; these queries are slow.
+
+3. `src/evidence/passive/ctlogs.py` — certificate transparency via crt.sh.
+   - `https://crt.sh/?q=%25.<domain>&output=json` → every subdomain ever issued
+     a certificate.
+   - This is the cheapest way to find `api.`, `idx.`, `search.`, `data.`,
+     `mobile.` and `staging.` hosts. Those hosts frequently sit outside the WAF
+     that protects `www`, so this often reveals the easy route into an otherwise
+     hard site.
+   - Write 00_meta/subdomains.json with each subdomain, first-seen date, and
+     whether DNS currently resolves. **Do not probe them with HTTP in this
+     phase** — resolution only. Any that resolve become candidates for p2_static,
+     which applies the normal budget and robots checks.
+
+4. `src/evidence/passive/serp.py` — search engine reconnaissance, optional and
+   rate-limited.
+   - `site:<domain>` style queries to sample indexed URL shapes and titles.
+   - Purpose is URL taxonomy and page-title patterns, not content.
+   - Make the backend pluggable and default to OFF, since search APIs need keys.
+     If no key is configured, skip cleanly and record that it was skipped —
+     never scrape a search engine's HTML results page as a substitute.
+
+5. `src/evidence/passive/syndication.py` — where else does this site's inventory
+   appear?
+   - Many regional brokerages syndicate to Land.com, LandFlip, or an auction
+     platform. If a site is hard but syndicates to an easy aggregator, the
+     optimal route may be "get it from the aggregator instead."
+   - Detect by searching aggregator sites for the brokerage name, and by
+     checking the site for aggregator badges/links in the footer.
+   - Write 00_meta/syndication.json: target aggregators, evidence, and whether
+     the aggregator copy carries the same fields.
+   This is a genuinely important finding for Wave 3 — it may mean a third of the
+   regional sites never need their own scraper.
+
+6. `src/evidence/phases/p1b_passive.py` — orchestrate the above. This phase must
+   run for EVERY site, including fully accessible ones, because subdomain
+   discovery and syndication findings are valuable regardless of blocking.
+
+   It must run even when p2_static reported the site as fully blocked — in fact
+   that is when it matters most. Ensure the phase registry does not make p1b
+   depend on a successful p2.
+
+## Notes
+- Archives and CT logs are public infrastructure serving exactly this purpose.
+  Still, apply the RateLimiter to them and cache aggressively — do not hammer
+  crt.sh or the CDX API across 60 sites without caching.
+- Archived HTML can be stale. Always record the snapshot date alongside anything
+  derived from it, and mark derived selectors `source: "archive"` so later
+  analysis knows they need live confirmation.
+
+## Acceptance
+Run on landwatch, schraderauction, and one site that p2_static found blocked:
+- subdomains.json lists subdomains for all three; at least one site reveals a
+  plausible api/idx/search host
+- archive/ contains at least one usable unrewritten detail-page snapshot for two
+  of the three sites
+- the blocked site now has a populated URL taxonomy derived from archive data,
+  demonstrating we can characterize a site we cannot load
+- syndication.json written for all three, with a verdict even if it is "none found"
+- zero requests to the blocked site's origin during this phase
+
+Commit as "Add no-touch evidence sources: archives, CT logs, syndication".
+````
+
+---
+
 ## Prompt 2 — Browser layer, render diff, interaction probes
 
 ````text
@@ -448,6 +563,10 @@ Run on acrevalue, landwatch, peoplescompany, hibid:
 - when Next.js is detected, a /_next/data/ fetch was attempted and its outcome
   recorded either way
 - absence of any API is recorded explicitly as a finding, not as a missing file
+- a site with no captured traffic (because it blocked us) still produces
+  endpoints.json — populated from bundle scanning and robots Disallow paths,
+  with every entry marked `verified: false`. Unverified candidates are useful;
+  a missing file is not.
 
 Commit as "Add endpoint mining: HAR analysis, replay, GraphQL, bundle scanning".
 ````
@@ -505,6 +624,13 @@ and "which repeated block on that page is one listing".
 5. `src/evidence/phases/p6_nav.py` — orchestrate; also save search_p1_raw.html,
    search_p1_rendered.html, search_p2_rendered.html and search_p1.png.
 
+6. Archive fallback. When the live search page is unreachable, run the identical
+   taxonomy and card-detection logic against archived HTML from p1b instead, and
+   tag every derived artifact with `source: "archive"` plus the snapshot date.
+   URL taxonomy in particular can be built almost entirely from a Wayback CDX
+   listing, since it needs URLs rather than page content. A blocked site should
+   still end this phase with a detail-URL regex and a pagination hypothesis.
+
 ## Acceptance
 Run on landwatch, farmflip, nationalland, schraderauction:
 - url_taxonomy.json labels at least one cluster `detail` and one `search-index`
@@ -514,6 +640,9 @@ Run on landwatch, farmflip, nationalland, schraderauction:
 - card_sample.html opens in a browser and visibly is one listing
 - geo_index_pages.json finds state-level index pages on at least two sites
 - total_result_count extracted where the site displays one
+- run it additionally against a site p2_static found blocked: url_taxonomy.json
+  must still be populated from archive data, with source and snapshot date
+  recorded on every entry
 
 Commit as "Add navigation mapping, URL taxonomy and listing-card detection".
 ````
@@ -595,11 +724,27 @@ acreage and soil data. Detect tract tables explicitly and write a
 `tracts` array in field_evidence.json when found. Ensure at least two multi-tract
 pages are sampled on auction-heavy sites. Do not flatten them.
 
+## Sampling a site we cannot load
+When live detail pages are unreachable, sample from the archived snapshots
+gathered in p1b instead. Field locations learned from a 2023 snapshot are still
+strong evidence about where a site puts acreage and price — sites redesign far
+less often than they change inventory. Requirements:
+- use the unrewritten (`id_`) archive form so selectors are not corrupted
+- tag the sample directory and every location with `source: "archive"` and the
+  snapshot date
+- reduce the sample target from 10 to whatever the archive actually holds, and
+  record the shortfall rather than padding
+
+The point is that no site ends this phase with zero field evidence. A site we
+never loaded should still tell us where its acreage field lives.
+
 ## Acceptance
 Run on peoplescompany, schraderauction, landwatch, farmflip:
 - 10 sample directories per site, each with raw + rendered HTML and a screenshot
 - field_evidence.json present per sample, with >= 3 distinct location kinds
   observed across the site
+- run additionally against a blocked site: field evidence still produced from
+  archive snapshots, correctly tagged, with the shortfall recorded
 - multi-tract structure captured on at least one schraderauction sample
 - label_lexicon.json non-empty with >= 15 distinct labels per site
 - value_formats.json shows genuine variation for acres and price
@@ -639,6 +784,20 @@ Make the corpus browsable and turn each site's evidence into a proposed strategy
    Write each component, not just the product — the components are what make the
    score arguable.
 
+   Then add a SECOND, independent score that the plan did not originally have:
+
+   `evidence_completeness` = fraction of the phases that produced usable output,
+   weighted by importance. It answers "how much do we actually know about this
+   site" and it must be reported separately from `priority`.
+
+   The two are easy to confuse and must not be. A site can be hard to scrape and
+   perfectly well understood (accessibility 0.25, completeness 0.95) — that is a
+   success. A site can be trivially open and barely examined because the run
+   crashed (accessibility 1.0, completeness 0.3) — that is a gap to go fix.
+   Sorting the dashboard by completeness ascending is the triage queue; sorting by
+   priority descending is the build queue. Do not let a low score be ambiguous
+   between "this site is hard" and "we didn't look."
+
 3. `src/evidence/recipe.py` — synthesize 99_report/scrape_recipe.json in exactly
    the shape given in Part 4 of the plan. Strategy selection, in preference
    order: internal_api > hydration_payload > sitemap+static_html >
@@ -650,6 +809,29 @@ Make the corpus browsable and turn each site's evidence into a proposed strategy
    recipe's notes so the verdict is auditable rather than a dead end.
    Populate field_map from the aggregated field_evidence, preferring stable
    location kinds (jsonld, api) over brittle ones (nth-child CSS).
+
+   Add a `difficulty_assessment` block to every recipe. This is where the recipe
+   is allowed — expected, even — to describe an approach we did not execute:
+   ```json
+   "difficulty_assessment": {
+     "verdict": "moderate",        // trivial | easy | moderate | hard | infeasible
+     "blocking_mechanism": "Cloudflare managed challenge on /search only",
+     "what_would_be_required": [
+       "real browser session with cookie warmup on the homepage first",
+       "OR skip search entirely and enumerate from sitemap (recommended)"
+     ],
+     "recommended_route": "sitemap+static_html",
+     "verified": false,
+     "evidence": ["00_meta/blocked_report.json", "01_policy/sitemaps/tree.json"]
+   }
+   ```
+   Rules for this block: `verified` is true ONLY for routes we actually
+   exercised end to end. Every claim cites artifact paths. `what_would_be_required`
+   may name techniques outside this project's scope (sessions, warmup, browser
+   automation) because naming them is the deliverable — but nothing in the
+   codebase may implement a bypass, and the block must never recommend proxies,
+   VPNs, IP rotation or CAPTCHA solving as a route. If the only conceivable route
+   is one of those, the verdict is `infeasible` and we move on.
    Include a `confidence` and a `notes` array that surfaces robots conflicts,
    unfilled diversity slots, and multi-tract presence.
 
@@ -666,8 +848,11 @@ Make the corpus browsable and turn each site's evidence into a proposed strategy
    - `site_report.md`: same content, plain text, for reading in a terminal or
      feeding to a model.
    - `_index.html`: dashboard table of all sites — wave, family, tier, WAF,
-     has-API, needs-JS, field coverage %, score, link to site report. Sortable
-     with inline JS, no external assets (must work from file://).
+     has-API, needs-JS, field coverage %, **priority score, evidence-completeness
+     score, difficulty verdict**, link to site report. Sortable with inline JS, no
+     external assets (must work from file://). Show completeness as a visible bar,
+     not a number buried in a column — it is the field that tells you whether to
+     trust the rest of the row.
 
 5. `src/evidence/crosssite.py` — write evidence/_cross_site/:
    - `label_lexicon_global.json` — merged label → canonical field across all sites
@@ -687,8 +872,13 @@ Make the corpus browsable and turn each site's evidence into a proposed strategy
 - Open evidence/_index.html from file:// — table renders, sorting works, every
   site links to its report
 - Open a site_report.html — every artifact link resolves, screenshots display
-- scrape_recipe.json produced for every site that completed p1-p8, including a
-  `blocked` recipe for sites that could not be reached
+- scrape_recipe.json produced for **every site attempted**, with no exceptions —
+  including sites that blocked us at every turn. A blocked site's recipe carries
+  a difficulty_assessment, a recommended_route (possibly "none found"), and
+  `verified: false`. There is no code path where a site ends with no recipe.
+- every recipe has a difficulty_assessment; none of them recommend proxies, VPNs,
+  IP rotation or CAPTCHA solving
+- priority and evidence_completeness reported separately everywhere they appear
 - platform_families.json states a verdict on the Land.com hypothesis with cited
   evidence
 - value_format_grammar.md contains real observed variants, not invented ones
@@ -746,15 +936,35 @@ into the analysis inputs.
      robust to)
    - how often multi-tract auctions appear, and the recommended schema decision
    - the four open questions from Part 10 of the plan, now answered with data
+   - **the difficulty distribution**: how many sites are trivial / easy /
+     moderate / hard / infeasible, and what specifically makes the hard ones
+     hard. This is the section that tells us what the agent must eventually
+     handle, and which sites are simply not worth handling.
+   - **where syndication substitutes for scraping**: regional sites whose
+     inventory is fully available from an aggregator we can already read
 
 ## Guardrails
 Unchanged and non-negotiable: robots respected, 60-request budget per site,
-sequential, no CAPTCHA solving, no auth bypass, no paid bypass services. A site
-requiring L4+ is marked blocked and skipped — that is a finding, not a failure.
+sequential.
+
+Explicitly out of scope, and not to be added even if a site would otherwise be
+unreachable: VPNs, residential or datacenter proxies, IP rotation, CAPTCHA
+solving services, Cloudflare/DataDome bypass tooling, cf_clearance cookie
+harvesting, browser-stealth plugins beyond default Playwright behavior, and
+authenticated or paywalled areas.
+
+The goal of this run is to understand the optimal route into each site, not to
+achieve access. A site we cannot read is a completed data point, provided its
+report says what blocks it, what was still reachable, and what a future scraper
+would need. Describing an approach is in scope; implementing a bypass is not.
 
 ## Acceptance
 - evidence/_index.html lists every attempted site with a terminal status
 - no site left in a crashed or half-written state
+- **every attempted site has a scrape_recipe.json with a difficulty_assessment**,
+  including the ones that blocked us entirely
+- evidence_completeness reported per site; any site below 0.5 is either fixed or
+  explained in findings.md
 - 30 hand-labeled gold samples exist
 - decision_tree.md and docs/findings.md written, every claim citing evidence
   paths
@@ -797,6 +1007,6 @@ Commit as "Harden harness: tests, normalizers, drift detection".
 
 **The gold labels in Prompt 7 step 3 are tedious and load-bearing.** Thirty hand-checked pages is the difference between "the agent seems to work" and a measurable per-field accuracy number. Don't let a session skip it by generating plausible values — the whole point is that a human verified them.
 
-**Sequencing risk.** Prompts 1–6 each add a phase that reads the previous phase's artifacts. If you reorder them, later phases will read files that don't exist yet. The dependency chain is p1 → p2 → p3 → p4 → p5 → p6 → p7 → p8 → p9 → p10, and `depends_on` in the phase registry should enforce it.
+**Sequencing risk.** Prompts 1–6 each add a phase that reads the previous phase's artifacts. If you reorder them, later phases will read files that don't exist yet. The dependency chain is p1 → p1b → p2 → p3 → p4 → p5 → p6 → p7 → p8 → p9 → p10, and `depends_on` in the phase registry should enforce it — with one deliberate exception: **p1b must not depend on p2 succeeding.** The no-touch sources matter most precisely when direct access failed, so a blocked site must still reach them.
 
 **When a prompt's acceptance criteria fail.** Distinguish three cases and say which one you're in: the code is wrong (fix it), the site changed (record it), or the expectation was wrong (amend the plan). The third is common and fine — the plan was written from research, not from observation, and the corpus is what corrects it.

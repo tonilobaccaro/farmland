@@ -56,6 +56,26 @@ Fingerprint the vendor from headers, cookies, script sources, and JS globals. Kn
 
 Collect: which vendor (if any), whether the *homepage* challenges vs only the *search/detail* pages, and — critically — **the escalation tier required** (below).
 
+### B-bis. No-touch evidence sources
+
+Evidence obtainable **without loading the site at all**. These cost the target
+nothing and they carry the project on sites that block us — which is what makes
+"no workarounds" a viable policy rather than a limitation.
+
+| Source | What it yields |
+|---|---|
+| **Wayback CDX API** | Full historical URL list for the domain → complete URL taxonomy without touching the origin |
+| **Wayback snapshots** (`/web/<ts>id_/<url>`) | Unrewritten archived HTML → DOM structure, JSON-LD, field locations, card markup. The `id_` suffix is essential; rewritten HTML corrupts selectors. |
+| **Common Crawl index** | URL-pattern confirmation at scale; fallback archived HTML |
+| **Certificate transparency** (crt.sh) | Every subdomain ever certificated — `api.`, `idx.`, `search.`, `mobile.` hosts that frequently sit *outside* the WAF protecting `www` |
+| **Search engines** (`site:` queries) | Indexed URL shapes and title patterns |
+| **Syndication check** | Does this brokerage's inventory also appear on an aggregator we can already read? |
+
+The syndication question is strategically important for Wave 3: if a regional
+brokerage syndicates in full to Land.com or LandFlip, the optimal route to its
+inventory may be an aggregator we have already solved, and that site never needs
+its own scraper.
+
 ### C-bis. The fetch escalation ladder
 
 The single most actionable output per site. Try tiers in order; record the lowest that returns real content:
@@ -374,6 +394,18 @@ field_coverage = fields_found / fields_in_ontology
 volume         = log10(estimated_listing_count)
 priority       = accessibility * (data_quality + field_coverage) * volume
 ```
+
+Reported **separately**, never folded into `priority`:
+
+```
+evidence_completeness = weighted fraction of phases that produced usable output
+```
+
+`priority` ranks what to build first. `evidence_completeness` says how much we
+actually know. A hard-but-well-understood site scores low on the first and high
+on the second — that is a success, and the two numbers must not be able to
+disguise each other. Sort ascending by completeness to get the triage queue;
+sort descending by priority to get the build queue.
 
 ---
 
