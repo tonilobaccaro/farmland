@@ -67,7 +67,7 @@ The single most actionable output per site. Try tiers in order; record the lowes
 | **L2** | `curl_cffi` with `impersonate="chrome"` — real JA3/JA4 TLS + h2 SETTINGS fingerprint | cheap |
 | **L3** | Playwright headless Chromium | ~1s/page, memory |
 | **L4** | Playwright headful + stealth patches, human-ish timing | slow |
-| **L5** | Any of the above via residential/mobile proxy | $$ — **flagged, not executed in this project** |
+| ~~L5~~ | ~~Residential/mobile proxy~~ | **Out of scope.** Not implemented, not planned. A site we cannot reach from a normal connection is recorded as blocked, and that record is itself the finding. |
 
 Record per site *and per page class* (home / search / detail / API) — many sites serve static HTML happily but challenge the search endpoint.
 

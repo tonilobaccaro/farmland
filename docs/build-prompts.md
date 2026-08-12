@@ -259,6 +259,34 @@ Implement the fetch escalation ladder and the two no-JavaScript phases.
    (home / search / detail), because sites commonly serve the homepage freely and
    challenge only search.
 
+6. `00_meta/blocked_report.json` — when anything blocks, treat it as a first-class
+   result to be described, not an error to be swallowed. There are NO proxies and
+   no bypass tooling in this project: the ladder stops at L2 here (L3/L4 in the
+   browser phases), and a site we cannot reach from a normal home connection is
+   simply recorded. That record is the deliverable.
+
+   Blocking is almost never all-or-nothing, and the partial cases are the most
+   useful thing this phase can find. Record per page class:
+   ```json
+   {
+     "overall": "partial",           // open | partial | blocked
+     "by_page_class": {
+       "home":   {"reachable": true,  "tier": "L1"},
+       "search": {"reachable": false, "vendor": "Cloudflare",
+                  "signal": "cf-mitigated: challenge", "status": 403,
+                  "highest_tier_tried": "L2"},
+       "detail": {"reachable": true,  "tier": "L2"}
+     },
+     "still_accessible": ["robots.txt", "sitemap-listings-1.xml", "jsonld_on_detail"],
+     "implication": "enumerate via sitemap; skip the search UI entirely"
+   }
+   ```
+   The `still_accessible` and `implication` fields are the point. A site whose
+   search page is Cloudflare-challenged but whose sitemap and detail pages are
+   wide open is not a blocked site — it is a site with a known route in, and the
+   report should say so. Populate `implication` from what was actually reachable,
+   and leave it null rather than guessing when nothing was.
+
 ## Acceptance
 Run on landwatch, peoplescompany, properties-sc-egov-usda (Wave 1 subset):
 - robots.txt and a parsed version exist for all three
@@ -267,6 +295,9 @@ Run on landwatch, peoplescompany, properties-sc-egov-usda (Wave 1 subset):
 - waf.json names a vendor with cited evidence for at least one site
 - tech_fingerprint.json detects ASP.NET WebForms + __VIEWSTATE on the USDA site
 - fetch_ladder.json shows a per-page-class tier for each
+- blocked_report.json written for every site, including fully-open ones
+  (`"overall": "open"`) — it is a status record, not an error log
+- any site that blocks completes the phase without raising
 - Total requests per site stays under the 60 budget
 
 Commit as "Add fetch ladder and passive recon phases".
@@ -612,6 +643,11 @@ Make the corpus browsable and turn each site's evidence into a proposed strategy
    the shape given in Part 4 of the plan. Strategy selection, in preference
    order: internal_api > hydration_payload > sitemap+static_html >
    paginated_static > rendered_browser > blocked.
+   Consult blocked_report.json when selecting: a site whose search page is
+   challenged but whose sitemap and detail pages are open is `sitemap+static_html`,
+   NOT `blocked`. Reserve `blocked` for sites with no reachable route at all, and
+   when used, carry the vendor, the signal and the page classes tried into the
+   recipe's notes so the verdict is auditable rather than a dead end.
    Populate field_map from the aggregated field_evidence, preferring stable
    location kinds (jsonld, api) over brittle ones (nth-child CSS).
    Include a `confidence` and a `notes` array that surfaces robots conflicts,
