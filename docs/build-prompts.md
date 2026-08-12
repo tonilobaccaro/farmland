@@ -835,6 +835,33 @@ Make the corpus browsable and turn each site's evidence into a proposed strategy
    Include a `confidence` and a `notes` array that surfaces robots conflicts,
    unfilled diversity slots, and multi-tract presence.
 
+3b. `src/evidence/validate.py` — close the loop. A recipe nobody tested is a
+   hypothesis, and the corpus is only trustworthy if we know which recipes
+   actually work.
+
+   `validate_recipe(site) -> ValidationReport`:
+   - take detail URLs NOT used during field-evidence synthesis (hold out 5;
+     if the site yielded fewer than 15 samples, hold out 3)
+   - execute the recipe's field_map against them: run each locator expression
+     (jsonpath / CSS / XPath / regex) exactly as written
+   - compare extracted values against hand-filled gold.json where present, and
+     otherwise record extraction success/failure per field (did the locator
+     resolve to anything at all?)
+   - emit per-field: attempted, resolved, matched_gold, and the failure mode
+     when it did not (`selector_missed` | `wrong_value` | `unparsed_format` |
+     `field_absent_on_page`)
+   - roll up to `recipe_confidence` = weighted per-field accuracy, and write it
+     back into scrape_recipe.json, replacing the synthesized guess
+   - flip `verified: true` only when validation actually ran against live pages
+
+   Write 99_report/validation.json. Surface the per-field table in
+   site_report.html — a field_map entry that resolved on 2 of 5 holdout pages is
+   the single most useful warning the corpus can give, because it means the
+   selector was learned from one page's layout and does not generalize.
+
+   `evidence validate --site SLUG` runs this standalone, so recipes can be
+   re-checked after a site changes without re-running the whole pipeline.
+
 4. `src/evidence/report.py` + `src/evidence/templates/`
    - `site_report.html` (jinja2): one page per site, rendered FROM the JSON
      artifacts so the human view and the agent view can never disagree.
@@ -910,6 +937,21 @@ into the analysis inputs.
    is the eval set — without it there is no way to score extraction later. Store
    as 06_detail_pages/sample_NN/gold.json so re-runs never overwrite it.
 
+3b. Run `evidence validate --site X` for every Wave 1 site and read the results.
+   This is the step that converts proposed recipes into verified ones. Expect
+   failures — a field_map learned from 10 samples routinely breaks on the 11th,
+   and that is exactly what we want to discover now rather than later.
+
+   For each field below ~80% accuracy, diagnose which of the four failure modes
+   it hit and fix the *locator preference order* in recipe.py, not the individual
+   selector. If JSON-LD was available and the recipe chose a fragile CSS selector
+   anyway, that is a ranking bug worth fixing once for all sites. Re-validate
+   after the fix.
+
+   Record in findings.md which fields validated well and which did not — that
+   distribution is a direct input to how much the agent must rely on inference
+   rather than fixed selectors.
+
 4. Run Waves 2, 3, 4. Respect the request budget; expect this to take hours of
    wall clock given the politeness delays. Run sites sequentially, not in
    parallel — the delays exist for a reason.
@@ -966,6 +1008,9 @@ would need. Describing an approach is in scope; implementing a bypass is not.
 - evidence_completeness reported per site; any site below 0.5 is either fixed or
   explained in findings.md
 - 30 hand-labeled gold samples exist
+- `evidence validate` has been run on every Wave 1 site, validation.json exists,
+  and each recipe carries a real recipe_confidence rather than a synthesized guess
+- every recipe's `verified` flag reflects whether validation actually ran
 - decision_tree.md and docs/findings.md written, every claim citing evidence
   paths
 
