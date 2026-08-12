@@ -4,6 +4,30 @@ Eight prompts that turn [`docs/evidence-gathering-plan.md`](./evidence-gathering
 
 **Goal of the whole sequence:** gather and store per-site evidence artifacts on disk. Not to build the scraping agent — that comes later, informed by what these artifacts show.
 
+## Where this runs
+
+**On your own machine, locally.** That is not a preference — it's a requirement:
+
+- **Sandboxed cloud dev environments block outbound traffic** to non-allowlisted hosts. The container this plan was written in returns `403 CONNECT tunnel failed` for arbitrary domains, so the harness literally cannot reach `landwatch.com` from there. Any similar sandbox will behave the same way.
+- **A residential IP is an advantage here.** Datacenter IP ranges (AWS, GCP, DigitalOcean) are the first thing anti-bot vendors score against you. Running from your home connection means fewer sites land in the `blocked` bucket, so the evidence better reflects what a real scraper would see.
+- **Playwright wants a real desktop.** Headless Chromium on a local machine is straightforward; in a container it needs extra system libraries.
+
+Nothing in the harness assumes a server. It's a CLI writing files to a directory under the repo.
+
+### Prerequisites
+
+| Need | Detail |
+|---|---|
+| Python | 3.11+ |
+| Browser | `playwright install chromium` once (~150MB) |
+| Disk | **5–20GB** for a full 4-wave corpus. HARs, screenshots and PDFs dominate. Prompt 8 adds HAR trimming if it gets unwieldy. |
+| Wall clock | **4–8 hours** for all ~60 sites. 60 requests/site × 2–5s jittered delay × 60 sites is ~4h of deliberate waiting, before render time. Wave 1 alone is ~40 minutes. |
+| RAM | 4GB+ free while the browser phases run |
+| OS | macOS or Linux ideally. Windows works but use WSL2 — `curl_cffi` and Playwright are both happier there. |
+| Network | A normal home/office connection. No VPN, and no proxy — a VPN exit IP is often flagged the same way a datacenter IP is. |
+
+Run it when you don't need the machine to be quiet; it's chatty on disk and holds a browser open for hours.
+
 ## How to use
 
 - Run **in order**. Each prompt depends on contracts established by the previous ones.
@@ -131,6 +155,24 @@ implement any actual fetching or parsing.
 10. `tests/test_scaffold.py` — ArtifactWriter round-trips, targets.yaml parses
     and has >= 55 sites, phase registry resolves dependencies in order.
 
+11. Local setup, since this runs on my own machine and not on a server:
+    - `.gitignore` that excludes `evidence/` entirely. The corpus will reach
+      5-20GB of HARs, screenshots and PDFs; it must never enter git history.
+      Exclude `.venv/`, `__pycache__/`, `*.har` too.
+    - `README.md` with the actual local run sequence: create a venv, install,
+      `playwright install chromium`, then `evidence run-wave 1`. Include the
+      disk and wall-clock expectations (5-20GB, 4-8 hours for all waves) so
+      there are no surprises mid-run.
+    - Default `evidence_root` to `./evidence` relative to the repo root, and
+      make it overridable with `--evidence-root` so the corpus can live on an
+      external drive if needed.
+    - A `evidence doctor` command that checks the local environment before a
+      long run: Python version, all imports resolve, Chromium present and
+      launchable, DNS resolves, outbound HTTPS to a known-good host works,
+      free disk space above 20GB, and write permission on evidence_root.
+      Report each as pass/fail with a fix hint. This exists so a 6-hour run
+      does not die at hour 5 on a full disk.
+
 ## Guardrails to encode now, not later
 Default user agent names the project and includes contact_url. respect_robots
 defaults True. Request budget defaults to 60/site. No CAPTCHA solving, no auth
@@ -140,6 +182,8 @@ bypass, no paid bypass services anywhere in this codebase.
 - `evidence list-sites` prints all sites grouped by wave.
 - `evidence run --site landwatch --phases none` creates the full empty directory
   tree under evidence/landwatch/.
+- `evidence doctor` runs on a clean machine and reports every check.
+- `git status` stays clean after a run — the corpus is ignored, not staged.
 - `pytest` passes. `ruff check` clean.
 
 Commit as "Scaffold evidence harness: contracts, config, CLI".
@@ -237,9 +281,9 @@ Read CLAUDE.md and docs/evidence-gathering-plan.md (Part 1D, phases P3-P4).
 
 Add Playwright-based rendering, network capture, and interaction probing.
 
-IMPORTANT: Chromium is pre-installed at PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers.
-Do NOT run `playwright install`. If a version mismatch appears, launch with
-executablePath='/opt/pw-browsers/chromium'.
+This runs on my local machine. If Chromium is not yet installed for Playwright,
+run `playwright install chromium` (one time, ~150MB). Do not assume a browser
+binary exists at any particular path — use Playwright's own resolution.
 
 ## Deliverables
 
@@ -643,6 +687,12 @@ into the analysis inputs.
 4. Run Waves 2, 3, 4. Respect the request budget; expect this to take hours of
    wall clock given the politeness delays. Run sites sequentially, not in
    parallel — the delays exist for a reason.
+
+   Practical notes for a multi-hour local run: start with `evidence doctor`;
+   run under `nohup`/`tmux` (or `caffeinate -i` on macOS) so a sleeping laptop
+   does not kill it mid-wave; tail the log rather than watching it. Resume with
+   the same command if it dies — completed phases are skipped unless --force,
+   so a crash at site 40 costs one site, not the wave.
 
 5. Write `evidence/_cross_site/decision_tree.md` — the playbook the agent starts
    from, derived from what the corpus actually shows, not from priors. Structure

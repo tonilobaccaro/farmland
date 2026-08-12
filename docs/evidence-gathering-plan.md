@@ -307,7 +307,7 @@ Ten phases, each writing artifacts and each independently re-runnable per site.
 |---|---|---|
 | HTTP | `httpx` (HTTP/2) | L0/L1 |
 | TLS impersonation | `curl_cffi` | L2 — cheap Cloudflare/Akamai passthrough |
-| Browser | `playwright` (Chromium) | already at `/opt/pw-browsers`; **do not** run `playwright install` |
+| Browser | `playwright` (Chromium) | `playwright install chromium` once during setup |
 | HAR capture | Playwright `record_har_path` | plus `page.on("response")` for bodies |
 | HTML parse | `selectolax` (fast) + `lxml` (XPath) | |
 | Structured data | `extruct` | JSON-LD + microdata + RDFa + OG in one call |
