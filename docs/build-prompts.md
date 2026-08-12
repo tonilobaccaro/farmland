@@ -163,6 +163,11 @@ implement any actual fetching or parsing.
    - `evidence run --site SLUG [--phases p1,p2] [--all-phases] [--force]`
    - `evidence run-wave N [--phases ...]`
    - `evidence status` — table of site × phase × status, read from PhaseResults
+   - `evidence doctor` — preflight environment check (see item 11)
+   Leave room for two commands that later prompts add, so the app structure does
+   not need reshaping: `evidence validate --site SLUG` (Prompt 6) and
+   `evidence report [--site SLUG]` (Prompt 6). Do not implement them now.
+
    Default behavior is resumable: skip a phase whose PhaseResult exists with
    status ok, unless --force. Every phase writes
    `00_meta/phases/<phase>.json`.
