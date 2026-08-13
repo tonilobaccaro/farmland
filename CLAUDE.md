@@ -146,6 +146,43 @@ not to look at).
 - Save the ToS for every site so the legal picture is reviewable in one
   place. Don't interpret it — just capture it.
 
+## Fetch ladder and recon (`src/evidence/fetch.py`, `fingerprint/`, `recon/`, `blocked.py`)
+
+Added in Prompt 1. `Fetcher` (in `fetch.py`) implements tiers L0 (httpx,
+honest UA), L1 (httpx, full Chrome header set), L2 (curl_cffi, TLS
+impersonation) — L3/L4 (Playwright) arrive in Prompt 2. `Fetcher.escalate()`
+tries tiers in order and stops at the first response `looks_like_challenge()`
+doesn't flag as a WAF interstitial; if every tier is blocked it returns the
+last attempt's body (often the interstitial itself — useful evidence) tagged
+`FetchTier.BLOCKED`. Every request goes through `RateLimiter` → `RequestBudget`
+→ `RobotsGate`, always in that order, via `Fetcher._request`.
+
+`fingerprint/waf.py` and `fingerprint/tech.py` are pure, no-network
+classifiers: declarative rule tables scored against headers/cookies/body (WAF
+vendor) or headers/cookies/html/script-srcs (framework/CMS). Every match
+records which literal signal fired — never just a bare vendor/technology
+name — so the JSON stays auditable. `recon/` holds the no-JS passive-recon
+sources: `dns_tls.py` (DNS records + TLS cert, ASN lookup is a best-effort
+stub pending an offline database), `robots.py` (protego wrapper + raw
+Disallow-path extraction), `sitemap.py` (recursive sitemap-index walker,
+network-injected via a `fetch_text` callback so the traversal/capping/lastmod
+logic is unit-testable without a network), `legal.py` (ToS/Privacy link
+scanner), `wellknown.py` (fixed well-known-path prober).
+
+`blocked.py` builds `00_meta/blocked_report.json` from a phase's
+per-page-class reachability — it's a pure function so the "open" /
+"partial" / "blocked" classification and the `implication` heuristic are
+unit-tested directly, independent of any live fetch.
+
+`phases/p1_recon.py` and `phases/p2_static.py` are the first two real phases;
+they orchestrate the above and are the reference examples for "how to add a
+phase" above. Note `RobotsGate.reload()`: `PhaseContext.robots` is built
+before any phase runs (from whatever `01_policy/robots.txt` already exists on
+disk, if any), so p1_recon calls `ctx.robots.reload(robots_txt)` right after
+fetching robots.txt for the first time — otherwise a fresh run's first phase
+would fetch under a permissive gate for however long it takes to learn the
+real policy.
+
 ## Local setup
 
 This runs on a real machine with a residential IP, not a server or a

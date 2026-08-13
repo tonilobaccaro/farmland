@@ -106,6 +106,20 @@ class RobotsGate:
 
             self._protego = Protego.parse(robots_txt)
 
+    def reload(self, robots_txt: str | None) -> None:
+        """Rebuild policy from freshly fetched robots.txt.
+
+        Bootstrapping: a phase running early in a fresh run has no
+        01_policy/robots.txt on disk yet when PhaseContext is built, so the
+        gate starts permissive. Once p1_recon fetches and parses robots.txt,
+        it calls this so every later fetch in the same run — by p1_recon
+        itself or any phase after it — is actually gated by real policy.
+        """
+        if robots_txt:
+            from protego import Protego
+
+            self._protego = Protego.parse(robots_txt)
+
     def allowed(self, url: str) -> bool:
         if self._protego is None:
             return True

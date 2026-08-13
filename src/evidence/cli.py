@@ -26,8 +26,8 @@ DEFAULT_TARGETS_PATH = Path("targets.yaml")
 # Modules that register phases as a side effect of import. Later prompts add
 # more phase modules here; the CLI structure itself does not change.
 PHASE_MODULES = [
-    # "evidence.phases.p1_recon",
-    # "evidence.phases.p2_static",
+    "evidence.phases.p1_recon",
+    "evidence.phases.p2_static",
 ]
 
 

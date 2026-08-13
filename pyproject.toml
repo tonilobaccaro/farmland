@@ -21,6 +21,7 @@ dependencies = [
     "typer",
     "rich",
     "pyyaml",
+    "dnspython",
 ]
 
 [project.optional-dependencies]
