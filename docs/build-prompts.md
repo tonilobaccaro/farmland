@@ -1,6 +1,6 @@
 # Build Prompts — Evidence-Gathering Harness
 
-Eight prompts that turn [`docs/evidence-gathering-plan.md`](./evidence-gathering-plan.md) into working code. Each is a self-contained Claude Code session.
+Eleven prompts that turn [`docs/evidence-gathering-plan.md`](./evidence-gathering-plan.md) into working code. Each is a self-contained Claude Code session.
 
 **Goal of the whole sequence:** gather and store per-site evidence artifacts on disk. Not to build the scraping agent — that comes later, informed by what these artifacts show.
 
@@ -48,9 +48,60 @@ The two questions every site's report must answer:
 
 A confident "this is hard, here's specifically why, here's what would be required" is a complete answer. A silent gap is not.
 
+## The design questions this corpus exists to answer
+
+The corpus is instrumentation, not the goal. The goal is knowing how to build the
+agent. Six questions decide the agent's architecture, and every phase should be
+understood as evidence toward one of them. Each prompt below is tagged with the
+questions it serves.
+
+| | Question | Why the answer changes the build |
+|---|---|---|
+| **Q1** | Can one navigation strategy generalize from base URL to listing pages, or does each site need bespoke logic? | Decides whether the agent has a general crawler or a per-site recipe interpreter |
+| **Q2** | What fraction of sites are reachable without a browser? | Decides whether browser automation is the default path or the fallback. Cost difference is ~100× |
+| **Q3** | Can fields be located by a *general method* (JSON-LD → label match → regex cascade), or does each site need a hand-built field map? | The single biggest architectural fork. A generic extractor at 85% is a completely different system from 60 hand-maintained maps |
+| **Q4** | How much do platform families collapse the work? | Decides whether the unit of work is a site or a family |
+| **Q5** | When a site changes, what breaks first, and is the breakage detectable? | Decides how much self-healing the agent needs versus scheduled revalidation |
+| **Q6** | Which fields are reliably present, and which are so rare or so varied that chasing them is not worth it? | Scopes the schema honestly instead of aspirationally |
+
+**Q3 deserves the most attention.** Nothing else changes the design as much, and it
+is answerable from this corpus: run the generic cascade against the gold labels and
+see what it scores. If a prompt's work can be steered to sharpen Q3, steer it.
+
+At the end, `docs/findings.md` must answer all six with cited evidence. An
+unanswered question is a worse outcome than an unreachable site.
+
+## Standing instructions for every prompt
+
+These apply to all prompts below. Each prompt's opening line points back here, so
+they travel with the copy-pasted prompt.
+
+1. **Observe, don't just produce.** Existence of a file proves nothing. After each
+   phase, open the artifacts you just wrote and confirm they contain real data.
+2. **Write an observation note.** Every phase appends to
+   `evidence/<site>/99_report/observations.md`: 3–8 sentences of plain English
+   about what you actually saw, **quoting real values from the artifacts** —
+   endpoint URLs, selectors, label strings, acreage formats. Not "extraction
+   succeeded" but "spec table uses `<dt>`/`<dd>` with labels 'Total Acres',
+   'Tillable', 'CSR2'; acreage renders as '160± Acres'."
+3. **Record surprises.** When reality contradicts the plan, append to
+   `docs/observations.md` at repo root: what the plan assumed, what you found,
+   and what it implies. The plan was written from research, not observation —
+   these corrections are a primary output, not a nuisance.
+4. **Answer your prompt's tagged design questions.** Add a short section to the
+   observation note stating what this phase contributed to Q1–Q6.
+5. **Priority under pressure.** If you are running low on context, deliver in this
+   order: (a) the phase runs end-to-end on one site and writes real artifacts,
+   (b) the observation note, (c) remaining sites, (d) polish and tests. A working
+   thin version beats a complete unrun one.
+6. **Say when the spec is wrong.** If a deliverable turns out to be a bad idea on
+   contact with real sites, implement what actually works and say so plainly in
+   the observation note. Do not silently follow a spec you can see is wrong.
+
 ## How to use
 
 - Run **in order**. Each prompt depends on contracts established by the previous ones.
+- **Prompt 1c is a spike, and it is the most important one to not skip.** It is the only place reality corrects the plan before five sessions build on it. It should feel wasteful; it is not.
 - One session per prompt. Start fresh; don't chain them in one context.
 - Prompt 0 writes `CLAUDE.md` with the shared contracts, so every later session self-orients by reading it.
 - Every prompt ends with "commit". Keep commits per-prompt so a bad session is one `git revert`.
@@ -62,7 +113,10 @@ A confident "this is hard, here's specifically why, here's what would be require
 ## Prompt 0 — Scaffold and contracts
 
 ````text
-Read docs/evidence-gathering-plan.md in full before starting.
+Read docs/evidence-gathering-plan.md in full, plus the "Standing instructions
+for every prompt" section of docs/build-prompts.md, before starting.
+
+Design questions served: foundation for all of Q1-Q6 (no evidence produced yet).
 
 Build the skeleton for an evidence-gathering harness that profiles farmland listing
 websites. This prompt creates NO collection logic — only the scaffolding, data
@@ -219,7 +273,11 @@ Commit as "Scaffold evidence harness: contracts, config, CLI".
 ## Prompt 1 — Fetch ladder and passive recon
 
 ````text
-Read CLAUDE.md and docs/evidence-gathering-plan.md (Parts 1A-1C).
+Read CLAUDE.md, docs/evidence-gathering-plan.md (Parts 1A-1C), and the
+"Standing instructions for every prompt" section of docs/build-prompts.md.
+
+Design questions served: Q2 (how many sites need a browser), Q4 (family
+fingerprints), Q5 (what a site exposes that we can cheaply re-check).
 
 Implement the fetch escalation ladder and the two no-JavaScript phases.
 
@@ -333,8 +391,11 @@ Commit as "Add fetch ladder and passive recon phases".
 ## Prompt 1b — No-touch evidence sources
 
 ````text
-Read CLAUDE.md and the "What success means: diagnosis, not access" section of
-docs/build-prompts.md.
+Read CLAUDE.md and the "What success means: diagnosis, not access" and
+"Standing instructions for every prompt" sections of docs/build-prompts.md.
+
+Design questions served: Q1 (URL taxonomy without touching the site), Q4
+(syndication and shared backends), Q6 (field presence in archived copies).
 
 Add evidence sources that characterize a site WITHOUT loading its pages. These
 carry the project when a site blocks us, and they cost the target nothing. This
@@ -425,10 +486,84 @@ Commit as "Add no-touch evidence sources: archives, CT logs, syndication".
 
 ---
 
+## Prompt 1c — Thin vertical slice (spike, one site, throwaway)
+
+````text
+Read CLAUDE.md and the "Standing instructions for every prompt" and "The design
+questions this corpus exists to answer" sections of docs/build-prompts.md.
+
+Design questions served: all six, shallowly. The point is to hit reality early.
+
+STOP AND READ: this prompt is deliberately different from the others. It is a
+SPIKE. The code you write here is throwaway and should live in `spikes/`, outside
+`src/evidence/`. Do not build abstractions. Do not write tests. Do not make it
+reusable. If you find yourself designing, you are doing the wrong thing.
+
+## Why this exists
+Prompts 2-6 each build a real phase, and each depends on contracts frozen in
+Prompt 0. If any of those contracts is wrong, the error propagates through five
+sessions before real sites correct it. This spike buys that feedback now, for
+about one session of effort.
+
+## Task
+Pick ONE site — peoplescompany.com is the best choice: bespoke, has auctions and
+private listings, multi-tract pages, a map, and PDFs. Take it end to end, by hand,
+crudely:
+
+1. Fetch the homepage and a search page. Note whether it needed a browser.
+2. Open the search page in Playwright with devtools-style network logging. Look at
+   the XHRs yourself. Is there a JSON API? Write down its URL.
+3. Find the listing cards. Do it by eye first, then write the crudest selector that
+   grabs them. How many did you get?
+4. Open 3 detail pages — deliberately one auction, one private treaty, one
+   multi-tract. For each, by hand, find: name, acres, price, county, state,
+   listing type, and (auction only) start/end date.
+5. For each of those 7 fields, write down EVERY place you found it: JSON-LD,
+   a spec table, prose, an API response, a data attribute. Copy the literal raw
+   strings, exactly as they appear.
+6. If there's a brochure PDF, download one and see whether pdfplumber gets text.
+
+## Deliverable: `docs/observations.md`
+This is the real output — the code is incidental. Write:
+- what the site actually is technically (framework, rendering, API or not)
+- the 7 fields × where each was found, with literal raw values quoted
+- **every place the plan was wrong.** Specific candidates to check hard:
+  - Is the multi-tract structure what Part 2 of the plan predicted? One page many
+    tracts, or something else entirely?
+  - Do the acreage formats match what the plan guessed ("160± Acres", "M/L")?
+  - Does the `FetchResult` / `PhaseResult` shape from Prompt 0 actually fit what
+    you needed to record, or is a field missing or useless?
+  - Is the 06_detail_pages/sample_NN/ layout right, or awkward in practice?
+  - Is the ontology missing fields this site clearly has?
+- a blunt verdict: which parts of the plan look right, which look wrong, and what
+  you would change before building Prompts 2-6.
+
+## Then act on it
+Apply any contract corrections directly to `src/evidence/models.py`,
+`src/evidence/config.py` and `CLAUDE.md` now, while only Prompt 0's code depends
+on them. Note each change in docs/observations.md with the reason.
+
+## Acceptance
+- docs/observations.md exists and quotes real strings from the real site
+- at least three concrete plan corrections proposed (if you found none, you did
+  not look hard enough — the plan was written from research, not observation)
+- any contract changes applied to models.py and CLAUDE.md
+- `spikes/` contains the throwaway code and is gitignored or clearly marked
+- NOTHING in src/evidence/ beyond contract fixes
+
+Commit as "Spike: hand-trace one site end to end, correct plan assumptions".
+````
+
+---
+
 ## Prompt 2 — Browser layer, render diff, interaction probes
 
 ````text
-Read CLAUDE.md and docs/evidence-gathering-plan.md (Part 1D, phases P3-P4).
+Read CLAUDE.md, docs/evidence-gathering-plan.md (Part 1D, phases P3-P4), and the
+"Standing instructions for every prompt" section of docs/build-prompts.md.
+
+Design questions served: Q2 primarily — the listing_count_delta this phase
+measures IS the answer to "does this site need a browser". Also Q1.
 
 Add Playwright-based rendering, network capture, and interaction probing.
 
@@ -503,7 +638,12 @@ Commit as "Add browser rendering, HAR capture and interaction probes".
 ## Prompt 3 — Endpoint mining
 
 ````text
-Read CLAUDE.md and docs/evidence-gathering-plan.md (Part 1E, phase P5).
+Read CLAUDE.md, docs/evidence-gathering-plan.md (Part 1E, phase P5), and the
+"Standing instructions for every prompt" section of docs/build-prompts.md.
+
+Design questions served: Q2 (an API means no browser ever), Q4 (shared endpoint
+shapes are the strongest family evidence), Q3 (API responses are pre-parsed
+fields — the easiest possible extraction path).
 
 Mine the captured network traffic for data interfaces. This phase produces the
 single most valuable artifact in the corpus: a ranked list of endpoints that
@@ -581,7 +721,12 @@ Commit as "Add endpoint mining: HAR analysis, replay, GraphQL, bundle scanning".
 ## Prompt 4 — Navigation mapping and listing-card detection
 
 ````text
-Read CLAUDE.md and docs/evidence-gathering-plan.md (Part 1G, phase P6).
+Read CLAUDE.md, docs/evidence-gathering-plan.md (Part 1G, phase P6), and the
+"Standing instructions for every prompt" section of docs/build-prompts.md.
+
+Design questions served: Q1 primarily — this phase decides whether one
+navigation strategy can generalize. Record explicitly how similar the
+pagination and URL patterns are ACROSS sites, not just within each one.
 
 Answer the question "how do you get from a base URL to pages full of listings",
 and "which repeated block on that page is one listing".
@@ -654,19 +799,35 @@ Commit as "Add navigation mapping, URL taxonomy and listing-card detection".
 
 ---
 
-## Prompt 5 — Detail sampling and field evidence
+## Prompt 5a — Ontology, sampling and structured extraction
 
 ````text
-Read CLAUDE.md and docs/evidence-gathering-plan.md (Parts 1F, 1H, 2 — phases P7-P8).
+Read CLAUDE.md, docs/evidence-gathering-plan.md (Parts 1F, 2 — phase P7),
+docs/observations.md, and the "Standing instructions for every prompt" section of
+docs/build-prompts.md.
 
-This is the heart of the corpus. For sampled detail pages, record EVERY place
-each target field appears, so we can later learn how the same field varies across
-sites and presentations.
+Design questions served: Q6 (which fields exist in the wild), and it sets up Q3
+by producing the sampled pages that Prompt 5b analyses.
+
+Gather a diversified set of detail pages per site and extract their structured
+metadata. Prompt 5b then locates individual fields within them. Getting the
+DIVERSITY right here is what makes the corpus teach variation rather than one
+template — this prompt is more about sample selection than about extraction.
 
 ## Deliverables
 
-1. `src/evidence/ontology.py` — encode the full field ontology from Part 2 of the
-   plan as a typed structure. Per field: canonical name, dtype, unit, seed label
+1. `src/evidence/ontology.py` — encode the field ontology from Part 2 of the
+   plan as a typed structure.
+
+   TREAT THE ONTOLOGY AS A HYPOTHESIS, NOT A SPEC. It was written from research,
+   not from looking at these sites. Build it so it is cheap to revise: every field
+   carries `status: "confirmed" | "hypothesized" | "not_observed"`, starting at
+   hypothesized, promoted the first time real evidence is found. Add fields you
+   encounter that the plan never imagined — that is a finding, not scope creep.
+   After Wave 1, any field still `not_observed` across every site is a candidate
+   for deletion, and docs/findings.md should say so (this is Q6).
+   Check docs/observations.md first — the Prompt 1c spike may already have
+   flagged corrections. Per field: canonical name, dtype, unit, seed label
    synonyms, seed regex patterns, and JSON-LD paths to check. Cover all groups:
    core, transaction type, price, acreage, soil/productivity, location,
    agronomic, lease, auction, improvements, contact, media.
@@ -692,42 +853,12 @@ sites and presentations.
    attributes on the page with their elements (these routinely carry data-lat,
    data-lng, data-acres, data-listing-id), and all HTML comments.
 
-4. `src/evidence/locator.py` — for a given field and page, find every occurrence.
-   Search across, in this order, and record ALL hits not just the first:
-     jsonld (jsonpath) | api (matching endpoint sample from p5) | opengraph |
-     meta | data-attribute | definition list (dt/dd) | table row (th/td) |
-     labelled span/div | css selector | free-text regex | pdf text
-   Emit the exact `field_evidence.json` shape specified in Part 1H of the plan:
-   field, sample_url, gold_value (LEFT NULL for a human to fill), and a
-   `locations` array where each entry has kind, the locator expression, and the
-   raw matched string.
-
-   Every location must carry the *expression needed to re-find it* (jsonpath,
-   CSS selector, XPath, regex) — a location without a reusable expression is
-   useless to the agent later.
-
-5. `src/evidence/pdfs.py` — download PDFs linked from detail pages (cap 5/page,
-   20MB), extract text with pdfplumber into a sidecar .txt. Record whether text
-   extraction returned nothing (scanned image → OCR needed) since that decides a
-   scoping question in the plan.
-
-6. `src/evidence/lexicon.py` — aggregate across samples: every spec-table label
-   string seen → candidate canonical field (07_fields/label_lexicon.json), and
-   every distinct surface form per field (07_fields/value_formats.json). Also
-   write 07_fields/field_coverage.md — a human-readable table of which ontology
-   fields were found on this site and where.
-
-7. `src/evidence/phases/p7_details.py` and `p8_fields.py`. For each sample write
-   06_detail_pages/sample_NN/ with raw.html, rendered.html, screenshot.png,
-   jsonld.json, microdata.json, opengraph.json, data_attrs.json, text.txt,
-   field_evidence.json, assets/.
-
-## Special attention: multi-tract auctions
-Part 2 of the plan flags this as the main schema trap — one Schrader or Peoples
-Company auction page lists "Tract 1: 78.5ac, Tract 2: 120ac..." with per-tract
-acreage and soil data. Detect tract tables explicitly and write a
-`tracts` array in field_evidence.json when found. Ensure at least two multi-tract
-pages are sampled on auction-heavy sites. Do not flatten them.
+4. `src/evidence/phases/p7_details.py` — for each selected sample write
+   06_detail_pages/sample_NN/ containing raw.html, rendered.html, screenshot.png,
+   jsonld.json, microdata.json, opengraph.json, data_attrs.json and text.txt.
+   This phase owns ALL fetching of detail pages. Prompt 5b's phase reads what it
+   wrote and never re-fetches, which is what lets field location be re-run
+   repeatedly as the locator improves without touching the sites again.
 
 ## Sampling a site we cannot load
 When live detail pages are unreachable, sample from the archived snapshots
@@ -743,9 +874,75 @@ less often than they change inventory. Requirements:
 The point is that no site ends this phase with zero field evidence. A site we
 never loaded should still tell us where its acreage field lives.
 
-## Acceptance
+## Acceptance (5a)
 Run on peoplescompany, schraderauction, landwatch, farmflip:
 - 10 sample directories per site, each with raw + rendered HTML and a screenshot
+- diversity slots recorded: which were filled, which the site could not supply
+- jsonld.json / microdata.json / opengraph.json / data_attrs.json written per
+  sample, empty-but-present where the site has none
+- ontology.py loads, every field carrying a status, and any field the spike or
+  these sites revealed has been added
+
+Commit as "Add field ontology, diversified sampling and structured extraction".
+````
+
+---
+
+## Prompt 5b — Field location, PDFs and lexicon
+
+````text
+Read CLAUDE.md, docs/evidence-gathering-plan.md (Parts 1H, 2 — phase P8),
+docs/observations.md, and the "Standing instructions for every prompt" section of
+docs/build-prompts.md.
+
+Design questions served: Q3 above all — this phase produces the evidence that
+decides whether a generic extraction cascade can work, or whether every site
+needs a hand-built map. Also Q6 (which fields actually exist in the wild).
+
+Prompt 5a produced sampled detail pages with their structured data extracted.
+This prompt finds where each ontology field lives on those pages.
+
+## Deliverables
+
+1. `src/evidence/locator.py` — for a given field and page, find every occurrence.
+   Search across, in this order, and record ALL hits not just the first:
+     jsonld (jsonpath) | api (matching endpoint sample from p5) | opengraph |
+     meta | data-attribute | definition list (dt/dd) | table row (th/td) |
+     labelled span/div | css selector | free-text regex | pdf text
+   Emit the exact `field_evidence.json` shape specified in Part 1H of the plan:
+   field, sample_url, gold_value (LEFT NULL for a human to fill), and a
+   `locations` array where each entry has kind, the locator expression, and the
+   raw matched string.
+
+   Every location must carry the *expression needed to re-find it* (jsonpath,
+   CSS selector, XPath, regex) — a location without a reusable expression is
+   useless to the agent later.
+
+2. `src/evidence/pdfs.py` — download PDFs linked from detail pages (cap 5/page,
+   20MB), extract text with pdfplumber into a sidecar .txt. Record whether text
+   extraction returned nothing (scanned image → OCR needed) since that decides a
+   scoping question in the plan.
+
+3. `src/evidence/lexicon.py` — aggregate across samples: every spec-table label
+   string seen → candidate canonical field (07_fields/label_lexicon.json), and
+   every distinct surface form per field (07_fields/value_formats.json). Also
+   write 07_fields/field_coverage.md — a human-readable table of which ontology
+   fields were found on this site and where.
+
+4. `src/evidence/phases/p8_fields.py` — reads the sample directories p7_details
+   already wrote and adds field_evidence.json plus assets/ to each, then the
+   07_fields/ aggregates. It must not re-fetch anything; everything it needs is
+   on disk.
+
+## Special attention: multi-tract auctions
+Part 2 of the plan flags this as the main schema trap — one Schrader or Peoples
+Company auction page lists "Tract 1: 78.5ac, Tract 2: 120ac..." with per-tract
+acreage and soil data. Detect tract tables explicitly and write a
+`tracts` array in field_evidence.json when found. Ensure at least two multi-tract
+pages are sampled on auction-heavy sites. Do not flatten them.
+
+## Acceptance (5b)
+Run on peoplescompany, schraderauction, landwatch, farmflip:
 - field_evidence.json present per sample, with >= 3 distinct location kinds
   observed across the site
 - run additionally against a blocked site: field evidence still produced from
@@ -757,7 +954,7 @@ Run on peoplescompany, schraderauction, landwatch, farmflip:
 - at least one brochure PDF captured with extracted text, or an explicit record
   that extraction returned nothing
 
-Commit as "Add detail sampling, field evidence location and lexicon aggregation".
+Commit as "Add field location, PDF capture and lexicon aggregation".
 ````
 
 ---
@@ -765,7 +962,12 @@ Commit as "Add detail sampling, field evidence location and lexicon aggregation"
 ## Prompt 6 — Dynamics, scoring, recipe synthesis, reports
 
 ````text
-Read CLAUDE.md and docs/evidence-gathering-plan.md (Parts 1I, 4, 8 — phases P9-P10).
+Read CLAUDE.md, docs/evidence-gathering-plan.md (Parts 1I, 4, 8 — phases P9-P10),
+and the "Standing instructions for every prompt" section of docs/build-prompts.md.
+
+Design questions served: Q5 (change dynamics and detectability), Q3 (validation
+scores the generic-vs-bespoke question directly), and the roll-ups that let
+findings.md answer all six.
 
 Make the corpus browsable and turn each site's evidence into a proposed strategy.
 
@@ -867,6 +1069,28 @@ Make the corpus browsable and turn each site's evidence into a proposed strategy
    `evidence validate --site SLUG` runs this standalone, so recipes can be
    re-checked after a site changes without re-running the whole pipeline.
 
+3c. **The Q3 experiment.** This is the most decision-relevant thing the whole
+   corpus can produce, so build it deliberately rather than as a side effect.
+
+   Implement a `generic_extractor` that uses NO site-specific knowledge — only
+   the cascade: JSON-LD by schema.org property → OpenGraph → data-* attributes →
+   spec-table label match against label_lexicon_global.json → regex from
+   value_format_grammar.md. It gets the global lexicon, never the site's own
+   field_map.
+
+   Then run BOTH extractors over the same holdout pages and gold labels:
+   - the site-specific field_map from the recipe
+   - the generic cascade
+
+   Write `_cross_site/q3_generic_vs_specific.json` and a short markdown summary:
+   per-field accuracy for each approach, the gap between them, and which fields
+   the generic cascade handles fine versus which genuinely need per-site work.
+
+   This single number — how close generic gets to specific — decides whether the
+   agent is a general extractor with a lexicon, or a system for authoring and
+   maintaining 60 field maps. Report it prominently in findings.md, and do not
+   let it be buried as an implementation detail.
+
 4. `src/evidence/report.py` + `src/evidence/templates/`
    - `site_report.html` (jinja2): one page per site, rendered FROM the JSON
      artifacts so the human view and the agent view can never disagree.
@@ -923,7 +1147,10 @@ Commit as "Add dynamics, scoring, recipe synthesis and HTML reporting".
 ## Prompt 7 — Full run and triage
 
 ````text
-Read CLAUDE.md and docs/evidence-gathering-plan.md.
+Read CLAUDE.md, docs/evidence-gathering-plan.md, docs/observations.md, and the
+"Standing instructions for every prompt" section of docs/build-prompts.md.
+
+Design questions served: ALL. This prompt is where Q1-Q6 get answered.
 
 The harness is built. Run it across the full target list and turn the results
 into the analysis inputs.
@@ -1027,7 +1254,10 @@ Commit progressively — one commit per wave, plus one for the findings.
 ## Prompt 8 — Hardening (optional, run after first full pass)
 
 ````text
-Read CLAUDE.md and docs/findings.md.
+Read CLAUDE.md, docs/findings.md, and the "Standing instructions for every
+prompt" section of docs/build-prompts.md.
+
+Design questions served: Q5 (drift detection), Q3 (normalizer coverage).
 
 Harden the harness for repeat runs now that we know how sites actually behave.
 
@@ -1053,7 +1283,7 @@ Commit as "Harden harness: tests, normalizers, drift detection".
 
 ## Notes on running these
 
-**Where the value concentrates.** Prompts 3 and 5 produce most of the corpus's worth. Prompt 3 finds the endpoints that make scraping cheap; Prompt 5 produces the field-variation evidence that is the entire reason to do this rather than hand-writing four scrapers. If time is short, do 0–5 properly and treat 6–8 as follow-on.
+**Where the value concentrates.** Prompts 3 and 5b produce most of the corpus's worth. Prompt 3 finds the endpoints that make scraping cheap; Prompt 5b produces the field-variation evidence that is the entire reason to do this rather than hand-writing four scrapers. If time is short, do 0–5b properly and treat 6–8 as follow-on.
 
 **The gold labels in Prompt 7 step 3 are tedious and load-bearing.** Thirty hand-checked pages is the difference between "the agent seems to work" and a measurable per-field accuracy number. Don't let a session skip it by generating plausible values — the whole point is that a human verified them.
 
