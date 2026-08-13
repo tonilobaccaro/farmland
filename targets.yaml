@@ -1,0 +1,417 @@
+# Target sites for the evidence-gathering harness.
+# Populated from Part 8 of docs/evidence-gathering-plan.md, in wave order.
+# archetype / expected_family are hypotheses from the plan's research, not yet
+# observed — phases correct them as evidence comes in (see docs/observations.md).
+
+sites:
+  # ---------------------------------------------------------------------
+  # Wave 1 — pilot (one per archetype)
+  # ---------------------------------------------------------------------
+  - slug: landwatch
+    base_url: https://www.landwatch.com
+    wave: 1
+    archetype: large_marketplace
+    expected_family: land_com_network
+    notes: "Likely CDN-defended; CoStar-owned Land.com network member."
+
+  - slug: farmflip
+    base_url: https://www.farmflip.com
+    wave: 1
+    archetype: auction_marketplace
+    expected_family: landflip_network
+    notes: "Farm-specific member of the LandFlip network."
+
+  - slug: peoplescompany
+    base_url: https://www.peoplescompany.com
+    wave: 1
+    archetype: bespoke_brokerage
+    expected_family: bespoke
+    notes: "Bespoke brokerage with auctions, private listings, multi-tract pages, and a map search. Chosen for the Prompt 1c spike."
+
+  - slug: schraderauction
+    base_url: https://www.schraderauction.com
+    wave: 1
+    archetype: auction_first
+    expected_family: bespoke
+    notes: "Auction-first, multi-tract, PDF-brochure-heavy."
+
+  - slug: farmersnational
+    base_url: https://www.farmersnational.com
+    wave: 1
+    archetype: farm_manager
+    expected_family: bespoke
+    notes: "Large farm manager; auctions plus private-treaty listings."
+
+  - slug: hibid
+    base_url: https://www.hibid.com
+    wave: 1
+    archetype: auction_aggregator_platform
+    expected_family: hibid
+    notes: "Auction aggregator platform hosting hundreds of auctioneer subdomains."
+
+  - slug: acrevalue
+    base_url: https://www.acrevalue.com
+    wave: 1
+    archetype: map_gis_first
+    expected_family: bespoke
+    notes: "Map/GIS-first; expect a heavy internal API."
+
+  - slug: properties-sc-egov-usda
+    base_url: https://properties.sc.egov.usda.gov
+    wave: 1
+    archetype: legacy_govt_aspnet
+    expected_family: aspnet_webforms
+    notes: "USDA RD/FSA resales. Legacy ASP.NET WebForms, __VIEWSTATE/__EVENTVALIDATION POST flow, session-stateful."
+
+  - slug: nationalland
+    base_url: https://www.nationalland.com
+    wave: 1
+    archetype: regional_brokerage
+    expected_family: wordpress
+    notes: "Regional brokerage, likely WordPress + real-estate theme."
+
+  - slug: steffesgroup
+    base_url: https://www.steffesgroup.com
+    wave: 1
+    archetype: regional_auctioneer
+    expected_family: bidwrangler_nextlot
+    notes: "Regional auctioneer, likely a white-label bidding platform."
+
+  # ---------------------------------------------------------------------
+  # Wave 2 — marketplaces & national auction firms
+  # ---------------------------------------------------------------------
+  - slug: land
+    base_url: https://www.land.com
+    wave: 2
+    archetype: large_marketplace
+    expected_family: land_com_network
+
+  - slug: landsofamerica
+    base_url: https://www.landsofamerica.com
+    wave: 2
+    archetype: large_marketplace
+    expected_family: land_com_network
+
+  - slug: landandfarm
+    base_url: https://www.landandfarm.com
+    wave: 2
+    archetype: large_marketplace
+    expected_family: land_com_network
+
+  - slug: landflip
+    base_url: https://www.landflip.com
+    wave: 2
+    archetype: auction_marketplace
+    expected_family: landflip_network
+
+  - slug: ranchflip
+    base_url: https://www.ranchflip.com
+    wave: 2
+    archetype: auction_marketplace
+    expected_family: landflip_network
+
+  - slug: landbrokermls
+    base_url: https://www.landbrokermls.com
+    wave: 2
+    archetype: mls_aggregator
+    expected_family: bespoke
+
+  - slug: landsearch
+    base_url: https://www.landsearch.com
+    wave: 2
+    archetype: marketplace_aggregator
+    expected_family: bespoke
+
+  - slug: farmsusa
+    base_url: https://www.farmsusa.com
+    wave: 2
+    archetype: national_brokerage
+    expected_family: bespoke
+
+  - slug: farms
+    base_url: https://www.farms.com
+    wave: 2
+    archetype: marketplace_aggregator
+    expected_family: bespoke
+
+  - slug: landleader
+    base_url: https://www.landleader.com
+    wave: 2
+    archetype: broker_network
+    expected_family: bespoke
+
+  - slug: hertz-ag
+    base_url: https://www.hertz.ag
+    wave: 2
+    archetype: farm_manager
+    expected_family: bespoke
+
+  - slug: halderman
+    base_url: https://www.halderman.com
+    wave: 2
+    archetype: farm_manager
+    expected_family: bespoke
+
+  - slug: bigiron
+    base_url: https://www.bigiron.com
+    wave: 2
+    archetype: auction_platform
+    expected_family: bespoke
+    notes: "Equipment + land auction platform."
+
+  - slug: sullivanauctioneers
+    base_url: https://www.sullivanauctioneers.com
+    wave: 2
+    archetype: regional_auctioneer
+    expected_family: bidwrangler_nextlot
+
+  - slug: murraywiseassociates
+    base_url: https://www.murraywiseassociates.com
+    wave: 2
+    archetype: farm_manager
+    expected_family: bespoke
+
+  - slug: ranchandfarmauctions
+    base_url: https://www.ranchandfarmauctions.com
+    wave: 2
+    archetype: regional_auctioneer
+    expected_family: bidwrangler_nextlot
+
+  - slug: hallhall
+    base_url: https://www.hallhall.com
+    wave: 2
+    archetype: bespoke_brokerage
+    expected_family: bespoke
+    notes: "Hall and Hall — ranch brokerage."
+
+  - slug: buyafarm
+    base_url: https://www.buyafarm.com
+    wave: 2
+    archetype: national_brokerage
+    expected_family: bespoke
+
+  - slug: ranchland
+    base_url: https://www.ranchland.com
+    wave: 2
+    archetype: national_brokerage
+    expected_family: bespoke
+
+  - slug: unitedcountry
+    base_url: https://www.unitedcountry.com
+    wave: 2
+    archetype: franchise_network
+    expected_family: bespoke
+    notes: "Large franchise network; per-office listings may vary in platform."
+
+  - slug: farmlandpartners
+    base_url: https://www.farmlandpartners.com
+    wave: 2
+    archetype: reit_corporate
+    expected_family: bespoke
+    notes: "Publicly traded farmland REIT; corporate site, may not list individual parcels for sale."
+
+  # ---------------------------------------------------------------------
+  # Wave 3 — regional firms (breadth test for the platform-family hypothesis)
+  # ---------------------------------------------------------------------
+  - slug: dreamdirt
+    base_url: https://www.dreamdirt.com
+    wave: 3
+    archetype: regional_brokerage
+    expected_family: wordpress
+
+  - slug: stalcupag
+    base_url: https://www.stalcupag.com
+    wave: 3
+    archetype: regional_brokerage
+    expected_family: wordpress
+
+  - slug: pifers
+    base_url: https://www.pifers.com
+    wave: 3
+    archetype: regional_auctioneer
+    expected_family: bidwrangler_nextlot
+
+  - slug: gfarmland
+    base_url: https://www.gfarmland.com
+    wave: 3
+    archetype: regional_brokerage
+    expected_family: wordpress
+
+  - slug: midwestlandgroup
+    base_url: https://www.midwestlandgroup.com
+    wave: 3
+    archetype: regional_brokerage
+    expected_family: wordpress
+
+  - slug: wheelerauctions
+    base_url: https://www.wheelerauctions.com
+    wave: 3
+    archetype: regional_auctioneer
+    expected_family: bidwrangler_nextlot
+
+  - slug: reckagri
+    base_url: https://www.reckagri.com
+    wave: 3
+    archetype: regional_brokerage
+    expected_family: wordpress
+
+  - slug: greatplainslandcompany
+    base_url: https://www.greatplainslandcompany.com
+    wave: 3
+    archetype: regional_brokerage
+    expected_family: wordpress
+
+  - slug: kansaslandauction
+    base_url: https://www.kansaslandauction.com
+    wave: 3
+    archetype: regional_auctioneer
+    expected_family: bidwrangler_nextlot
+
+  - slug: kaufmanrealty
+    base_url: https://www.kaufmanrealty.com
+    wave: 3
+    archetype: regional_brokerage
+    expected_family: wordpress
+
+  - slug: tuttland
+    base_url: https://www.tuttland.com
+    wave: 3
+    archetype: regional_brokerage
+    expected_family: wordpress
+
+  - slug: afmrealestate
+    base_url: https://www.afmrealestate.com
+    wave: 3
+    archetype: regional_brokerage
+    expected_family: bespoke
+
+  - slug: mossyoakproperties
+    base_url: https://www.mossyoakproperties.com
+    wave: 3
+    archetype: franchise_network
+    expected_family: bespoke
+    notes: "Large franchise; custom platform aggregating many local agents' listings."
+
+  - slug: whitetailproperties
+    base_url: https://www.whitetailproperties.com
+    wave: 3
+    archetype: franchise_network
+    expected_family: bespoke
+    notes: "Large franchise; custom platform aggregating many local agents' listings."
+
+  - slug: fayranches
+    base_url: https://www.fayranches.com
+    wave: 3
+    archetype: regional_brokerage
+    expected_family: wordpress
+
+  - slug: pearsonrealty
+    base_url: https://www.pearsonrealty.com
+    wave: 3
+    archetype: regional_brokerage
+    expected_family: wordpress
+
+  # ---------------------------------------------------------------------
+  # Wave 4 — platforms, government, data & investment
+  # ---------------------------------------------------------------------
+  - slug: proxibid
+    base_url: https://www.proxibid.com
+    wave: 4
+    archetype: auction_aggregator_platform
+    expected_family: proxibid
+
+  - slug: auctionzip
+    base_url: https://www.auctionzip.com
+    wave: 4
+    archetype: auction_directory
+    expected_family: bespoke
+
+  - slug: bidwrangler
+    base_url: https://www.bidwrangler.com
+    wave: 4
+    archetype: auction_platform
+    expected_family: bidwrangler_nextlot
+    notes: "The white-label platform itself, not just a client of it."
+
+  - slug: auctiontime
+    base_url: https://www.auctiontime.com
+    wave: 4
+    archetype: auction_platform
+    expected_family: bespoke
+    notes: "DTN AuctionTime; equipment + land."
+
+  - slug: marknetalliance
+    base_url: https://www.marknetalliance.com
+    wave: 4
+    archetype: regional_auctioneer
+    expected_family: bidwrangler_nextlot
+
+  - slug: realestatesales-gov
+    base_url: https://www.realestatesales.gov
+    wave: 4
+    archetype: legacy_govt
+    expected_family: bespoke
+    notes: "Federal government real-estate/foreclosure sales site."
+
+  - slug: bid4assets
+    base_url: https://www.bid4assets.com
+    wave: 4
+    archetype: govt_auction_platform
+    expected_family: bespoke
+
+  - slug: realauction
+    base_url: https://www.realauction.com
+    wave: 4
+    archetype: govt_auction_platform
+    expected_family: bespoke
+
+  - slug: govease
+    base_url: https://www.govease.com
+    wave: 4
+    archetype: govt_auction_platform
+    expected_family: bespoke
+
+  - slug: auction-com
+    base_url: https://www.auction.com
+    wave: 4
+    archetype: large_marketplace
+    expected_family: bespoke
+    notes: "Large real-estate auction platform, broader than farmland."
+
+  - slug: farmlandfinder
+    base_url: https://www.farmlandfinder.com
+    wave: 4
+    archetype: data_aggregator
+    expected_family: bespoke
+
+  - slug: acres
+    base_url: https://www.acres.com
+    wave: 4
+    archetype: land_data_platform
+    expected_family: bespoke
+
+  - slug: id-land
+    base_url: https://id.land
+    wave: 4
+    archetype: mapping_platform
+    expected_family: bespoke
+
+  - slug: landgate
+    base_url: https://www.landgate.com
+    wave: 4
+    archetype: land_data_platform
+    expected_family: bespoke
+
+  - slug: acretrader
+    base_url: https://www.acretrader.com
+    wave: 4
+    archetype: investment_platform
+    expected_family: bespoke
+    notes: "Fractional farmland investment platform, not a traditional listing site."
+
+  - slug: farmtogether
+    base_url: https://www.farmtogether.com
+    wave: 4
+    archetype: investment_platform
+    expected_family: bespoke
+    notes: "Fractional farmland investment platform, not a traditional listing site."
