@@ -183,6 +183,31 @@ fetching robots.txt for the first time — otherwise a fresh run's first phase
 would fetch under a permissive gate for however long it takes to learn the
 real policy.
 
+## No-touch evidence sources (`src/evidence/passive/`, `phases/p1b_passive.py`)
+
+Added in Prompt 1b. `passive/archive.py` (Wayback CDX + unrewritten `id_`
+snapshots), `passive/commoncrawl.py` (recent-crawl index queries, NDJSON),
+`passive/ctlogs.py` (crt.sh subdomain discovery — resolution only, never HTTP
+probing), `passive/serp.py` (pluggable search-engine recon, off unless a real
+backend+key is registered) and `passive/syndication.py` (footer-badge scan
+against a known-aggregator list) are all pure parsing/classification
+functions with the network call injected as a `fetch_text` callback — same
+pattern as `recon/sitemap.py` — so they're unit-tested against canned
+CDX/NDJSON/crt.sh JSON without touching a network.
+
+`phases/p1b_passive.py` is the one phase in this codebase that talks to
+*other* hosts on the target site's behalf instead of the target site itself.
+Its `_infra_get` helper is rate-limited and budgeted like every other
+request, but is deliberately **not** gated by `PhaseContext.robots` — that
+gate holds the *target site's* robots.txt, which has nothing to do with
+archive.org/crt.sh/commoncrawl.org policy (see the plan's Part B-bis: these
+are "public infrastructure serving exactly this purpose"). `p1b_passive` has
+`depends_on = []` on purpose and must never fetch the target site's own
+origin directly — even its syndication-badge check only reads
+`02_rendering/home_raw.html` if p2_static already wrote it, or falls back to
+a Wayback snapshot, precisely so this phase stays safe to run first, last, or
+on a site every other phase found fully blocked.
+
 ## Local setup
 
 This runs on a real machine with a residential IP, not a server or a

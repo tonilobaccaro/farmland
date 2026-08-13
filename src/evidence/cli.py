@@ -27,6 +27,7 @@ DEFAULT_TARGETS_PATH = Path("targets.yaml")
 # more phase modules here; the CLI structure itself does not change.
 PHASE_MODULES = [
     "evidence.phases.p1_recon",
+    "evidence.phases.p1b_passive",
     "evidence.phases.p2_static",
 ]
 

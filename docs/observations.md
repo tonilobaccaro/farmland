@@ -63,6 +63,33 @@ matters enough to build for real, add `maxminddb` + a GeoLite2-ASN file path
 in `RunConfig` in a later prompt; for now every site's `dns_tls.json` will
 honestly report it wasn't looked up.
 
+## Prompt 1b — same sandbox limitation, plus one design correction made mid-build
+
+Also built and smoke-tested in the sandboxed environment: `evidence run
+--site landwatch --phases p1_recon,p1b_passive,p2_static` completes without
+raising and writes every deliverable file with honest empty results
+(`subdomains.json: {}`, `archive/manifest.json` with `total_cdx_urls: 0`,
+etc.) because crt.sh/archive.org/commoncrawl.org are all unreachable from
+here too — same `403` at the proxy as everything else. `requests_made: 3` in
+the phase's own `PhaseResult` confirms exactly three infra calls were
+attempted (crt.sh, Wayback CDX, Common Crawl collinfo) and zero requests hit
+landwatch.com's own origin, which is Prompt 1b's most safety-critical
+acceptance criterion — genuinely verified, just against a network that
+refuses every one of those hosts rather than against real data.
+
+Design correction made while writing the phase, before it ever ran: an
+earlier draft had the syndication-badge step fetch the target site's own
+homepage directly (routed through the same rate-limited/budgeted helper as
+the archive.org calls, just to reuse the bookkeeping). That's exactly the
+"depends on p2 / touches the live site" outcome Prompt 1b explicitly forbids
+("zero requests to the blocked site's origin during this phase"). Fixed
+before running anything: the syndication check now reads
+`02_rendering/home_raw.html` if p2_static already wrote it, else falls back
+to a Wayback snapshot of the homepage, else records `home_html_source: null`
+and moves on. Worth calling out because it's the kind of mistake that's easy
+to make by analogy ("it's just another fetch through the same helper") and
+would have silently broken the phase's one hard invariant.
+
 ## Prompt 1c is still owed
 
 This session went straight from Prompt 0 to Prompt 1 without running the
